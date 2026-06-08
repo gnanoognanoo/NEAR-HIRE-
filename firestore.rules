@@ -1,0 +1,53 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Users ──────────────────────────────
+    // Users can only read/write their own profile
+    match /users/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // ── Jobs ───────────────────────────────
+    // Public read, only authenticated employers can create/edit their own jobs
+    match /jobs/{jobId} {
+      allow read: if true;
+      allow create: if request.auth != null
+                    && request.resource.data.employerId == request.auth.uid;
+      allow update, delete: if request.auth != null
+                            && resource.data.employerId == request.auth.uid;
+    }
+
+    // ── Applications ───────────────────────
+    // Workers can create applications and read their own
+    // Employers can read applications for their jobs
+    match /applications/{applicationId} {
+      allow create: if request.auth != null
+                    && request.resource.data.workerId == request.auth.uid;
+      allow read: if request.auth != null
+                  && (resource.data.workerId == request.auth.uid
+                      || resource.data.employerId == request.auth.uid);
+      allow update: if request.auth != null
+                    && resource.data.employerId == request.auth.uid;
+      allow delete: if false;
+    }
+
+    // ── Future Collections (empty stubs) ───
+    match /subscriptionPlans/{docId} {
+      allow read: if true;
+      allow write: if false; // Admin only
+    }
+
+    match /ratings/{docId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update, delete: if false;
+    }
+
+    match /chatRooms/{docId} {
+      allow read, write: if request.auth != null
+                         && request.auth.uid in resource.data.participants;
+    }
+  }
+}
